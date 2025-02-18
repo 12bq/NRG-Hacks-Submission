@@ -34,10 +34,15 @@ communityCards = []
 currentBets = {}
 playerActions = {}
 
+arguing = False
+argumentUsers = []
+
 @client.event
 async def on_message(message):
     global checkInPhase, gameStart, phaseOne, phaseTwo, phaseThree
     global pokerUsers, pokerHands, communityCards, currentBets
+
+    global arguing, argumentUsers
     
     if message.author == client.user:
         return
@@ -154,6 +159,18 @@ async def on_message(message):
 
             await message.channel.send('Game has ended! Type `$poker` to start a new game.')
 
+    if message.content.startswith('$argumentSettler'):
+        arguing = True
+        await message.channel.send('The two people arguing type: $arguee')
+    
+    if arguing and message.content.startswith('$arguee'):
+        if len(argumentUsers) < 2:
+            argumentUsers.append(message.author.id)
+            await message.channel.send(f'{message.author.name} has joined the argument!')
+
+        if len(argumentUsers) == 2:
+            await settle_argument(message.channel)
+
 async def display_game_status(channel):
     embed = discord.Embed(
         title="Poker Game Status",
@@ -171,4 +188,15 @@ async def display_game_status(channel):
 
     await channel.send(embed=embed)
 
-client.run('MTM0MTQzMTg5NTUzNTM5MDc3MQ.GYk0Oe.RkwwN0uGz_6g8pI0ox5iRTWBXxIT5vYOH8X92Q')
+async def settle_argument(channel):
+    global arguing, argumentUsers
+    
+    winner = random.choice(argumentUsers)
+    
+    winner_user = await client.fetch_user(winner)
+    await channel.send(f'The winner of the argument is: {winner_user.name}!')
+    
+    arguing = False
+    argumentUsers.clear()
+
+client.run('DISCORD_TOKEN')
