@@ -10,27 +10,20 @@ suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
 ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 deck = [f'{rank} of {suit}' for suit in suits for rank in ranks]
 
-def deal_hands(num_players):
+def shuffle_deck():
     random.shuffle(deck)
-    hands = []
-    for i in range(num_players):
-        hand = [deck.pop() for _ in range(2)]
-        hands.append(hand)
-    return hands
 
-def deal_river():
-    return [deck.pop() for _ in range(3)]
+def deal_hands(num_players):
+    return [[deck.pop(), deck.pop()] for _ in range(num_players)]
 
-def deal_turn():
-    return deck.pop()
-
-def deal_river_card():
-    return deck.pop()
+def deal_card():
+    return deck.pop() if deck else None
 
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
 
+# Game State Variables
 checkInPhase = False
 gameStart = False
 phaseOne = False
@@ -38,15 +31,13 @@ phaseTwo = False
 phaseThree = False
 pokerUsers = []
 pokerHands = []
-theRiver = []
-theTurn = ""
-theFinalRiver = ""
+communityCards = []
 currentBets = {}
 
 @client.event
 async def on_message(message):
     global checkInPhase, gameStart, phaseOne, phaseTwo, phaseThree
-    global pokerUsers, pokerHands, theRiver, theTurn, theFinalRiver, currentBets
+    global pokerUsers, pokerHands, communityCards, currentBets
     
     if message.author == client.user:
         return
@@ -62,6 +53,7 @@ async def on_message(message):
     
     if message.content.startswith('$play') and checkInPhase:
         gameStart = True
+        shuffle_deck()
         await message.channel.send('Game started! Commands: $deal, $check, $raise <amount>, $fold')
     
     if gameStart:
@@ -71,8 +63,10 @@ async def on_message(message):
                 user = await client.fetch_user(user_id)
                 await user.send(f'Your hand: {", ".join(pokerHands[i])}')
             
-            theRiver = deal_river()
-            await message.channel.send(f'Flop: {", ".join(theRiver)}')
+            communityCards.clear()
+            communityCards.extend([deal_card() for _ in range(3)])
+            await message.channel.send(f'Flop: {", ".join(communityCards)}')
+
             phaseOne = True
             currentBets = {user: 0 for user in pokerUsers}
         
@@ -92,13 +86,13 @@ async def on_message(message):
             await message.channel.send(f'{message.author.name} folds.')
         
         elif message.content.startswith('$turn') and phaseOne and not phaseTwo:
-            theTurn = deal_turn()
-            await message.channel.send(f'Turn: {theTurn}')
+            communityCards.append(deal_card())
+            await message.channel.send(f'Flop: {", ".join(communityCards)}')
             phaseTwo = True
         
         elif message.content.startswith('$river') and phaseTwo and not phaseThree:
-            theFinalRiver = deal_river_card()
-            await message.channel.send(f'River: {theFinalRiver}')
+            communityCards.append(deal_card())
+            await message.channel.send(f'Flop: {", ".join(communityCards)}')
             phaseThree = True
         
         elif message.content.startswith('$showdown') and phaseThree:
