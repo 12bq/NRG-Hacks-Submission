@@ -1,10 +1,14 @@
 import discord
 import random
+import os
+from dotenv import load_dotenv
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 client = discord.Client(intents=intents)
+
+load_dotenv()
 
 suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
 ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
@@ -199,4 +203,4 @@ async def settle_argument(channel):
     arguing = False
     argumentUsers.clear()
 
-client.run('DISCORD_TOKEN')
+client.run(os.getenv('DISCORD_TOKEN'))
