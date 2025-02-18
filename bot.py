@@ -19,13 +19,13 @@ def deal_hands(num_players):
     return hands
 
 def deal_river():
-    random.shuffle(deck)
-    river = []
-    for i in range(3):
-        print(i)
-        river.append(deck.pop())
-    print(river)
-    return river
+    return [deck.pop() for _ in range(3)]
+
+def deal_turn():
+    return deck.pop()
+
+def deal_river_card():
+    return deck.pop()
 
 @client.event
 async def on_ready():
@@ -35,65 +35,72 @@ checkInPhase = False
 gameStart = False
 phaseOne = False
 phaseTwo = False
+phaseThree = False
 pokerUsers = []
 pokerHands = []
 theRiver = []
+theTurn = ""
+theFinalRiver = ""
+currentBets = {}
 
 @client.event
 async def on_message(message):
-    global checkInPhase
-    global phaseOne
-    global phaseTwo
-    global gameStart
-    global pokerUsers
-    global pokerHands
-    global theRiver
-
+    global checkInPhase, gameStart, phaseOne, phaseTwo, phaseThree
+    global pokerUsers, pokerHands, theRiver, theTurn, theFinalRiver, currentBets
+    
     if message.author == client.user:
         return
-
-    if message.content.startswith('$hello'):
-        await message.channel.send('Hello!')
-
 
     if message.content.startswith('$poker'):
         checkInPhase = True
         await message.channel.send('All players send $checkin to be dealt in')
-
-    if message.content.startswith('$checkin'):
-        if checkInPhase:
-            await message.channel.send(f'{message.author.name} checked in.')
-            print(message.author.id)
+    
+    if message.content.startswith('$checkin') and checkInPhase:
+        if message.author.id not in pokerUsers:
             pokerUsers.append(message.author.id)
-            print(pokerUsers)
-        else:
-            await message.channel.send('Game didnt start yet dumbass')
-
-    if message.content.startswith('$play'):
-        if checkInPhase:
-            gameStart = True
-            await message.channel.send('Game started!\nCommands: $deal, $check, $raise')
-            print(pokerHands)
-        else:
-            await message.channel.send('Game didnt start yet dumbass')
-
-    if(gameStart):
-        if message.content.startswith('$deal'):
+            await message.channel.send(f'{message.author.name} checked in.')
+    
+    if message.content.startswith('$play') and checkInPhase:
+        gameStart = True
+        await message.channel.send('Game started! Commands: $deal, $check, $raise <amount>, $fold')
+    
+    if gameStart:
+        if message.content.startswith('$deal') and not phaseOne:
             pokerHands = deal_hands(len(pokerUsers))
-            print(pokerHands)
-            playerCounter = 0
-            for user_id in pokerUsers:
-                print(user_id)
+            for i, user_id in enumerate(pokerUsers):
                 user = await client.fetch_user(user_id)
-                await user.send(pokerHands[playerCounter])
-                playerCounter = playerCounter + 1
-
-            print(len(deck))
+                await user.send(f'Your hand: {", ".join(pokerHands[i])}')
+            
             theRiver = deal_river()
-            print(theRiver)
-            print(len(deck))
-
-            await message.channel.send(theRiver)
+            await message.channel.send(f'Flop: {", ".join(theRiver)}')
             phaseOne = True
-        else:
-            print('Enter $play to start game')
+            currentBets = {user: 0 for user in pokerUsers}
+        
+        elif message.content.startswith('$check') and phaseOne:
+            await message.channel.send(f'{message.author.name} checks.')
+        
+        elif message.content.startswith('$raise') and phaseOne:
+            try:
+                amount = int(message.content.split()[1])
+                currentBets[message.author.id] += amount
+                await message.channel.send(f'{message.author.name} raises by {amount}.')
+            except:
+                await message.channel.send('Invalid raise format. Use $raise <amount>')
+        
+        elif message.content.startswith('$fold') and phaseOne:
+            pokerUsers.remove(message.author.id)
+            await message.channel.send(f'{message.author.name} folds.')
+        
+        elif message.content.startswith('$turn') and phaseOne and not phaseTwo:
+            theTurn = deal_turn()
+            await message.channel.send(f'Turn: {theTurn}')
+            phaseTwo = True
+        
+        elif message.content.startswith('$river') and phaseTwo and not phaseThree:
+            theFinalRiver = deal_river_card()
+            await message.channel.send(f'River: {theFinalRiver}')
+            phaseThree = True
+        
+        elif message.content.startswith('$showdown') and phaseThree:
+            await message.channel.send('Showdown time! Evaluating hands...')
+            await message.channel.send('Winner determination is not implemented yet!')
